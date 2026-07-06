@@ -1,9 +1,7 @@
 name: Deploy (Ansible)
 
-# Reusable workflow that deploys a service by running the ansible-library
-# playbooks. All deploy config (host, user, port, compose files, ...) lives in
-# ansible-library; secrets live in its vault. A service repo therefore needs
-# only ONE secret: the Ansible vault password.
+# Pull ansible-library and run its deploy playbook. All deploy config lives in
+# ansible-library; the service repo needs only the vault-password secret.
 #
 #   jobs:
 #     deploy:
@@ -17,79 +15,40 @@ on:
   workflow_call:
     inputs:
       project:
-        description: "Project key in ansible-library group_vars 'projects' table."
+        description: "Project key in ansible-library's projects table."
         type: string
         required: true
-      ansible-library-repo:
-        type: string
-        required: false
-        default: "mach1el/ansible-library"
       ansible-library-ref:
         type: string
         required: false
         default: "master"
-      ansible-core-version:
-        description: "Pin ansible-core, e.g. 2.17.* — empty installs the latest."
-        type: string
-        required: false
-        default: ""
-      runs-on:
-        type: string
-        required: false
-        default: "ubuntu-latest"
     secrets:
       vault-password:
         required: true
-      ansible-library-token:
-        description: "PAT/deploy token to read ansible-library when it is private. Omit if public."
-        required: false
 
 jobs:
   deploy:
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout service repo
         uses: actions/checkout@v4
-        with:
-          path: service
 
       - name: Checkout ansible-library
         uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.ansible-library-repo }}
+          repository: mach1el/ansible-library
           ref: ${{ inputs.ansible-library-ref }}
-          token: ${{ secrets.ansible-library-token || github.token }}
-          path: ansible-library
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Install Ansible
-        run: |
-          set -euo pipefail
-          pip install "ansible-core${ANSIBLE_CORE_VERSION:+==$ANSIBLE_CORE_VERSION}"
-          ansible-galaxy collection install -r ansible-library/requirements.yml
-        env:
-          ANSIBLE_CORE_VERSION: ${{ inputs.ansible-core-version }}
-
-      - name: Write vault password
-        run: printf '%s' "$VAULT_PASSWORD" > "$RUNNER_TEMP/vault_pass"
-        env:
-          VAULT_PASSWORD: ${{ secrets.vault-password }}
+          path: .ansible-library
 
       - name: Deploy
-        working-directory: ansible-library
+        working-directory: .ansible-library
         env:
-          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible-library/ansible.cfg
+          VAULT_PASS: ${{ secrets.vault-password }}
         run: |
           set -euo pipefail
+          pip install --quiet ansible-core
+          ansible-galaxy collection install -r requirements.yml
           ansible-playbook playbooks/deploy.yml \
             -e project='${{ inputs.project }}' \
-            -e src_base='${{ github.workspace }}/service' \
-            --vault-password-file "$RUNNER_TEMP/vault_pass"
-
-      - name: Cleanup
-        if: always()
-        run: rm -f "$RUNNER_TEMP/vault_pass"
+            -e src_base="$GITHUB_WORKSPACE" \
+            --vault-password-file <(printf '%s' "$VAULT_PASS")
