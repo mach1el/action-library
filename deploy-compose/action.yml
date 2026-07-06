@@ -1,0 +1,141 @@
+name: "Deploy Docker Compose over SSH"
+description: >
+  Sync a repository to a remote host over SSH and run docker compose there.
+  Central deployment template for mach1el services. All service-specific values
+  are inputs so the same action serves every repo.
+
+inputs:
+  ssh-host:
+    description: "Target host (IP or DNS name)."
+    required: true
+  ssh-user:
+    description: "SSH user on the target host."
+    required: true
+  ssh-key:
+    description: "Private SSH key with access to the host. Always pass from a secret."
+    required: true
+  ssh-port:
+    description: "SSH port on the target host."
+    required: false
+    default: "22"
+  source-path:
+    description: "Directory to sync, relative to the checked-out repo."
+    required: false
+    default: "."
+  target-path:
+    description: "Absolute directory on the host to deploy into."
+    required: true
+  rsync-excludes:
+    description: >
+      Space-separated rsync --exclude patterns. These are also protected from
+      --delete, so keep server-only state here (.env, TLS material, data dirs).
+    required: false
+    default: ".git .github .env certbot"
+  compose-files:
+    description: "Space-separated compose files, turned into -f arguments."
+    required: false
+    default: "docker-compose.yml"
+  compose-args:
+    description: "docker compose subcommand and flags to run on the host."
+    required: false
+    default: "up -d --remove-orphans"
+  env-file:
+    description: >
+      Optional contents written to <target-path>/.env before compose runs.
+      Pass from a secret when the service needs one (e.g. API keys).
+    required: false
+    default: ""
+  health-url:
+    description: "Optional URL curled on the host after deploy to verify the stack."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare SSH
+      shell: bash
+      env:
+        SSH_KEY: ${{ inputs.ssh-key }}
+        SSH_HOST: ${{ inputs.ssh-host }}
+        SSH_PORT: ${{ inputs.ssh-port }}
+      run: |
+        set -euo pipefail
+        mkdir -p ~/.ssh
+        printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+    - name: Sync files
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.ssh-host }}
+        SSH_USER: ${{ inputs.ssh-user }}
+        SSH_PORT: ${{ inputs.ssh-port }}
+        SOURCE_PATH: ${{ inputs.source-path }}
+        TARGET_PATH: ${{ inputs.target-path }}
+        RSYNC_EXCLUDES: ${{ inputs.rsync-excludes }}
+      run: |
+        set -euo pipefail
+        excludes=""
+        for p in $RSYNC_EXCLUDES; do
+          excludes="$excludes --exclude=$p"
+        done
+        ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" \
+          "mkdir -p '$TARGET_PATH'"
+        # --delete keeps the host tree matching git, but excluded paths above
+        # (.env, certbot, ...) are preserved on the destination.
+        rsync -az --delete $excludes \
+          -e "ssh -p $SSH_PORT -i ~/.ssh/deploy_key" \
+          "$SOURCE_PATH/" \
+          "$SSH_USER@$SSH_HOST:$TARGET_PATH/"
+
+    - name: Write env file
+      if: inputs.env-file != ''
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.ssh-host }}
+        SSH_USER: ${{ inputs.ssh-user }}
+        SSH_PORT: ${{ inputs.ssh-port }}
+        TARGET_PATH: ${{ inputs.target-path }}
+        ENV_CONTENT: ${{ inputs.env-file }}
+      run: |
+        set -euo pipefail
+        printf '%s' "$ENV_CONTENT" | ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key \
+          "$SSH_USER@$SSH_HOST" "cat > '$TARGET_PATH/.env'"
+
+    - name: Compose up
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.ssh-host }}
+        SSH_USER: ${{ inputs.ssh-user }}
+        SSH_PORT: ${{ inputs.ssh-port }}
+        TARGET_PATH: ${{ inputs.target-path }}
+        COMPOSE_FILES: ${{ inputs.compose-files }}
+        COMPOSE_ARGS: ${{ inputs.compose-args }}
+      run: |
+        set -euo pipefail
+        files=""
+        for f in $COMPOSE_FILES; do
+          files="$files -f $f"
+        done
+        ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" \
+          "cd '$TARGET_PATH' && docker compose $files $COMPOSE_ARGS"
+
+    - name: Health check
+      if: inputs.health-url != ''
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.ssh-host }}
+        SSH_USER: ${{ inputs.ssh-user }}
+        SSH_PORT: ${{ inputs.ssh-port }}
+        HEALTH_URL: ${{ inputs.health-url }}
+      run: |
+        set -euo pipefail
+        ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" \
+          "curl -fsS --retry 5 --retry-delay 2 '$HEALTH_URL' >/dev/null && echo 'health OK'"
+
+    - name: Cleanup key
+      if: always()
+      shell: bash
+      run: rm -f ~/.ssh/deploy_key

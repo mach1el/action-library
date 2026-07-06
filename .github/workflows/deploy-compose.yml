@@ -1,0 +1,86 @@
+name: Deploy (compose over SSH)
+
+# Reusable workflow — the "job template" other repos include, the way GitLab
+# pipeline-library jobs are included with `extends`/`include`.
+#
+# Call it from a service repo:
+#
+#   jobs:
+#     deploy:
+#       uses: mach1el/action-library/.github/workflows/deploy-compose.yml@master
+#       with:
+#         ssh-host: ${{ vars.DEPLOY_HOST }}
+#         ssh-user: ${{ vars.DEPLOY_USER }}
+#         target-path: /home/apexvoid/deployment/<service>
+#         source-path: deployment-template
+#         compose-files: "docker-compose.yml docker-compose.prod.yml"
+#       secrets:
+#         ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+on:
+  workflow_call:
+    inputs:
+      ssh-host:
+        type: string
+        required: true
+      ssh-user:
+        type: string
+        required: true
+      ssh-port:
+        type: string
+        required: false
+        default: "22"
+      target-path:
+        type: string
+        required: true
+      source-path:
+        type: string
+        required: false
+        default: "."
+      rsync-excludes:
+        type: string
+        required: false
+        default: ".git .github .env certbot"
+      compose-files:
+        type: string
+        required: false
+        default: "docker-compose.yml"
+      compose-args:
+        type: string
+        required: false
+        default: "up -d --remove-orphans"
+      health-url:
+        type: string
+        required: false
+        default: ""
+      runs-on:
+        type: string
+        required: false
+        default: "ubuntu-latest"
+    secrets:
+      ssh-key:
+        required: true
+      env-file:
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Checkout service repo
+        uses: actions/checkout@v4
+
+      - name: Deploy
+        uses: mach1el/action-library/deploy-compose@master
+        with:
+          ssh-host: ${{ inputs.ssh-host }}
+          ssh-user: ${{ inputs.ssh-user }}
+          ssh-key: ${{ secrets.ssh-key }}
+          ssh-port: ${{ inputs.ssh-port }}
+          source-path: ${{ inputs.source-path }}
+          target-path: ${{ inputs.target-path }}
+          rsync-excludes: ${{ inputs.rsync-excludes }}
+          compose-files: ${{ inputs.compose-files }}
+          compose-args: ${{ inputs.compose-args }}
+          env-file: ${{ secrets.env-file }}
+          health-url: ${{ inputs.health-url }}
