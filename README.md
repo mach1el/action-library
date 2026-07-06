@@ -1,5 +1,12 @@
 # action-library
 
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-reusable_workflows-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://docs.github.com/actions)
+[![Ansible](https://img.shields.io/badge/Ansible-driven-1A1918?style=flat-square&logo=ansible&logoColor=white)](https://www.ansible.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License](https://img.shields.io/github/license/mach1el/action-library?style=flat-square)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/mach1el/action-library?style=flat-square)](https://github.com/mach1el/action-library/commits/master)
+[![Repo Size](https://img.shields.io/github/repo-size/mach1el/action-library?style=flat-square)](https://github.com/mach1el/action-library)
+
 Central deployment templates for `mach1el` services — the GitHub Actions
 counterpart of a GitLab **pipeline-library**. Every service repo references the
 same template instead of copy-pasting deploy YAML.
