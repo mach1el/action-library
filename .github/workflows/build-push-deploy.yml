@@ -1,0 +1,113 @@
+name: Build, push & deploy
+
+# Build one or more images, push them to a registry (tag = short SHA + latest),
+# then deploy on the VPS by pulling the new tag via ansible-library.
+#
+#   jobs:
+#     release:
+#       uses: mach1el/action-library/.github/workflows/build-push-deploy.yml@master
+#       with:
+#         project: voidocc
+#         registry-namespace: mich43l
+#         images: >-
+#           [{"name":"voidocc-backend","context":"backend","dockerfile":"backend/Dockerfile"}]
+#       secrets:
+#         registry-token: ${{ secrets.DOCKERHUB_TOKEN }}
+#         vault-password: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: "Project key in ansible-library's projects table."
+        type: string
+        required: true
+      images:
+        description: 'JSON array: [{"name","context","dockerfile"}].'
+        type: string
+        required: true
+      registry:
+        type: string
+        required: false
+        default: "docker.io"
+      registry-namespace:
+        description: "Image prefix and Docker Hub login user."
+        type: string
+        required: true
+      ansible-library-ref:
+        type: string
+        required: false
+        default: "master"
+    secrets:
+      registry-token:
+        required: true
+      vault-password:
+        required: true
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+    steps:
+      - id: t
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: meta
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJSON(inputs.images) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to registry
+        env:
+          TOKEN: ${{ secrets.registry-token }}
+        run: echo "$TOKEN" | docker login "${{ inputs.registry }}" -u "${{ inputs.registry-namespace }}" --password-stdin
+
+      - name: Build and push
+        env:
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          IMG="${{ inputs.registry }}/${{ inputs.registry-namespace }}/${{ matrix.image.name }}"
+          docker build \
+            --build-arg VERSION="$TAG" \
+            --build-arg REVISION="$GITHUB_SHA" \
+            --build-arg CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -f "${{ matrix.image.dockerfile }}" \
+            -t "$IMG:$TAG" -t "$IMG:latest" \
+            "${{ matrix.image.context }}"
+          docker push "$IMG:$TAG"
+          docker push "$IMG:latest"
+
+  deploy:
+    needs: [meta, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout service repo
+        uses: actions/checkout@v4
+
+      - name: Checkout ansible-library
+        uses: actions/checkout@v4
+        with:
+          repository: mach1el/ansible-library
+          ref: ${{ inputs.ansible-library-ref }}
+          path: .ansible-library
+
+      - name: Deploy
+        working-directory: .ansible-library
+        env:
+          VAULT_PASS: ${{ secrets.vault-password }}
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          pip install --quiet ansible-core
+          ansible-galaxy collection install -r requirements.yml
+          ansible-playbook playbooks/deploy.yml \
+            -e project='${{ inputs.project }}' \
+            -e src_base="$GITHUB_WORKSPACE" \
+            -e image_tag="$TAG" \
+            --vault-password-file <(printf '%s' "$VAULT_PASS")
