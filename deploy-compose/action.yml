@@ -38,7 +38,7 @@ inputs:
   compose-args:
     description: "docker compose subcommand and flags to run on the host."
     required: false
-    default: "up -d --remove-orphans"
+    default: "up -d --remove-orphans --force-recreate"
   env-file:
     description: >
       Optional contents written to <target-path>/.env before compose runs.

@@ -58,7 +58,7 @@ jobs:
 | `source-path` | `.` | Folder in the repo to ship, e.g. `deployment-template`. |
 | `rsync-excludes` | `.git .github .env certbot` | Also protected from `--delete`, so server-only state (`.env`, TLS certs, data) survives. |
 | `compose-files` | `docker-compose.yml` | Space-separated → `-f` args. |
-| `compose-args` | `up -d --remove-orphans` | |
+| `compose-args` | `up -d --remove-orphans --force-recreate` | Forces containers to be recreated on each deploy. |
 | `health-url` | — | Optional; curled on the host after deploy. |
 
 ### Secrets
