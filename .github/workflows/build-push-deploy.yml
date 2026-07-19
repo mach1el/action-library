@@ -5,7 +5,7 @@ name: Build, push & deploy
 #
 #   jobs:
 #     release:
-#       uses: mach1el/action-library/.github/workflows/build-push-deploy.yml@master
+#       uses: st-mich43l/action-library/.github/workflows/build-push-deploy.yml@master
 #       with:
 #         project: voidocc
 #         registry-namespace: mich43l
@@ -93,7 +93,7 @@ jobs:
       - name: Checkout ansible-library
         uses: actions/checkout@v4
         with:
-          repository: mach1el/ansible-library
+          repository: st-mich43l/ansible-library
           ref: ${{ inputs.ansible-library-ref }}
           path: .ansible-library
 
