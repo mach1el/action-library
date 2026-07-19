@@ -7,7 +7,7 @@ name: Deploy (compose over SSH)
 #
 #   jobs:
 #     deploy:
-#       uses: mach1el/action-library/.github/workflows/deploy-compose.yml@master
+#       uses: st-mich43l/action-library/.github/workflows/deploy-compose.yml@master
 #       with:
 #         ssh-host: ${{ vars.DEPLOY_HOST }}
 #         ssh-user: ${{ vars.DEPLOY_USER }}
@@ -71,7 +71,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy
-        uses: mach1el/action-library/deploy-compose@master
+        uses: st-mich43l/action-library/deploy-compose@master
         with:
           ssh-host: ${{ inputs.ssh-host }}
           ssh-user: ${{ inputs.ssh-user }}

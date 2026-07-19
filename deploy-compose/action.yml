@@ -1,7 +1,7 @@
 name: "Deploy Docker Compose over SSH"
 description: >
   Sync a repository to a remote host over SSH and run docker compose there.
-  Central deployment template for mach1el services. All service-specific values
+  Central deployment template for st-mich43l services. All service-specific values
   are inputs so the same action serves every repo.
 
 inputs:

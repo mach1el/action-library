@@ -3,11 +3,11 @@
 [![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-reusable_workflows-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://docs.github.com/actions)
 [![Ansible](https://img.shields.io/badge/Ansible-driven-1A1918?style=flat-square&logo=ansible&logoColor=white)](https://www.ansible.com/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License](https://img.shields.io/github/license/mach1el/action-library?style=flat-square)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/mach1el/action-library?style=flat-square)](https://github.com/mach1el/action-library/commits/master)
-[![Repo Size](https://img.shields.io/github/repo-size/mach1el/action-library?style=flat-square)](https://github.com/mach1el/action-library)
+[![License](https://img.shields.io/github/license/st-mich43l/action-library?style=flat-square)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/st-mich43l/action-library?style=flat-square)](https://github.com/st-mich43l/action-library/commits/master)
+[![Repo Size](https://img.shields.io/github/repo-size/st-mich43l/action-library?style=flat-square)](https://github.com/st-mich43l/action-library)
 
-Central deployment templates for `mach1el` services — the GitHub Actions
+Central deployment templates for `st-mich43l` services — the GitHub Actions
 counterpart of a GitLab **pipeline-library**. Every service repo references the
 same template instead of copy-pasting deploy YAML.
 
@@ -15,7 +15,7 @@ same template instead of copy-pasting deploy YAML.
 
 | Path | Type | Use |
 |------|------|-----|
-| [`.github/workflows/deploy-ansible.yml`](.github/workflows/deploy-ansible.yml) | Reusable workflow | **Preferred.** Runs the [`ansible-library`](https://github.com/mach1el/ansible-library) playbooks; all config centralized there, service repo needs only the vault-password secret. |
+| [`.github/workflows/deploy-ansible.yml`](.github/workflows/deploy-ansible.yml) | Reusable workflow | **Preferred.** Runs the [`ansible-library`](https://github.com/st-mich43l/ansible-library) playbooks; all config centralized there, service repo needs only the vault-password secret. |
 | [`.github/workflows/deploy-compose.yml`](.github/workflows/deploy-compose.yml) | Reusable workflow | Direct SSH+rsync deploy (no Ansible). Config passed as inputs/secrets per repo. |
 | [`deploy-compose/action.yml`](deploy-compose/action.yml) | Composite action | The building block (SSH → rsync → `docker compose`). Use directly when you need custom steps around it. |
 | [`init-env/init-env.sh`](init-env/init-env.sh) | Host script | One-time VPS bootstrap: create the deploy user, add it to `docker`, authorize the deploy key, create the deployment root. |
@@ -36,7 +36,7 @@ on:
 
 jobs:
   deploy:
-    uses: mach1el/action-library/.github/workflows/deploy-compose.yml@master
+    uses: st-mich43l/action-library/.github/workflows/deploy-compose.yml@master
     with:
       ssh-host: ${{ vars.DEPLOY_HOST }}
       ssh-user: ${{ vars.DEPLOY_USER }}
@@ -98,7 +98,7 @@ lands under `/home/<user>/deployment/<project>`.
 
 ## Cross-repo referencing (private repos)
 
-For private `mach1el/*` repos to reference this library:
+For private `st-mich43l/*` repos to reference this library:
 **Settings → Actions → General → "Access"** on this repo → allow
 *Accessible from repositories owned by the user*. Then pin to a tag
 (`@v1`) once released instead of `@master`.
